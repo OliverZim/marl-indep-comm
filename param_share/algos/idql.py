@@ -1,10 +1,8 @@
-import torch
 import os
+
+import torch
 from network.base_net import RNN
 from network.simple_comm_net import Comm_net
-import torch.nn as nn
-import numpy as np
-import sys
 
 
 class IDQL:
@@ -38,7 +36,6 @@ class IDQL:
             self.commtest = Comm_net(input_comm_shape, args)
             self.target_commtest = Comm_net(input_comm_shape, args)
 
-
         if self.args.cuda:
             self.eval_rnn.cuda(device=self.args.cuda_device)
             self.target_rnn.cuda(device=self.args.cuda_device)
@@ -46,16 +43,15 @@ class IDQL:
                 self.commtest.cuda(device=self.args.cuda_device)
                 self.target_commtest.cuda(device=self.args.cuda_device)
 
-        self.model_dir = args.model_dir + '/' + args.alg + '/' + args.map
+        self.model_dir = args.model_dir + "/" + args.alg + "/" + args.map
         if self.args.load_model:
-            if os.path.exists(self.model_dir + '/rnn_net_params.pkl'):
-                path_rnn = self.model_dir + '/rnn_net_params.pkl'
-                map_location = 'cuda:0' if self.args.cuda else 'cpu'
+            if os.path.exists(self.model_dir + "/rnn_net_params.pkl"):
+                path_rnn = self.model_dir + "/rnn_net_params.pkl"
+                map_location = "cuda:0" if self.args.cuda else "cpu"
                 self.eval_rnn.load_state_dict(torch.load(path_rnn, map_location=map_location))
-                print('Successfully load the model: {}'.format(path_rnn))
+                print("Successfully load the model: {}".format(path_rnn))
             else:
                 raise Exception("No model!")
-
 
         self.target_rnn.load_state_dict(self.eval_rnn.state_dict())
 
@@ -68,22 +64,26 @@ class IDQL:
         if args.optimizer == "RMS":
             self.optimizer = torch.optim.RMSprop(self.eval_parameters, lr=args.lr)
 
-
         self.eval_hidden = None
         self.target_hidden = None
-        print('Init alg IQL')
+        print("Init alg IQL")
 
-    def learn(self, batch, max_episode_len, train_step, epsilon=None):  
-        episode_num = batch['obs'].shape[0]
+    def learn(self, batch, max_episode_len, train_step, epsilon=None):
+        episode_num = batch["obs"].shape[0]
         self.init_hidden(episode_num)
-        for key in batch.keys():  
-            if key == 'actions':
+        for key in batch.keys():
+            if key == "actions":
                 batch[key] = torch.tensor(batch[key], dtype=torch.long)
             else:
                 batch[key] = torch.tensor(batch[key], dtype=torch.float32)
-        u, r, avail_u, avail_u_next, terminated = batch['actions'], batch['reward'].repeat(1, 1, self.n_agents),  batch['avail_actions'], \
-                                                  batch['avail_actions_next'], batch['terminated'].repeat(1, 1, self.n_agents)
-        mask = (1 - batch["padded"].float()).repeat(1, 1, self.n_agents) 
+        u, r, avail_u, avail_u_next, terminated = (
+            batch["actions"],
+            batch["reward"].repeat(1, 1, self.n_agents),
+            batch["avail_actions"],
+            batch["avail_actions_next"],
+            batch["terminated"].repeat(1, 1, self.n_agents),
+        )
+        mask = (1 - batch["padded"].float()).repeat(1, 1, self.n_agents)
 
         q_evals, q_targets = self.get_q_values(batch, max_episode_len)
         if self.args.cuda:
@@ -94,15 +94,15 @@ class IDQL:
 
         q_evals = torch.gather(q_evals, dim=3, index=u).squeeze(3)
 
-        q_targets[avail_u_next == 0.0] = - 9999999
+        q_targets[avail_u_next == 0.0] = -9999999
         q_targets = q_targets.max(dim=3)[0]
 
         targets = r + self.args.gamma * q_targets * (1 - terminated)
 
-        td_error = (q_evals - targets.detach())
-        masked_td_error = mask * td_error 
+        td_error = q_evals - targets.detach()
+        masked_td_error = mask * td_error
 
-        loss = (masked_td_error ** 2).sum() / mask.sum()
+        loss = (masked_td_error**2).sum() / mask.sum()
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -116,8 +116,11 @@ class IDQL:
         return loss
 
     def _get_inputs(self, batch, transition_idx):
-        obs, obs_next, u_onehot = batch['obs'][:, transition_idx], \
-                                  batch['obs_next'][:, transition_idx], batch['actions_onehot'][:]
+        obs, obs_next, u_onehot = (
+            batch["obs"][:, transition_idx],
+            batch["obs_next"][:, transition_idx],
+            batch["actions_onehot"][:],
+        )
         episode_num = obs.shape[0]
         inputs, inputs_next = [], []
         inputs.append(obs)
@@ -136,9 +139,8 @@ class IDQL:
             all_msgs = self.commtest(inputs_msg)
             all_msgs_next = self.target_commtest(inputs_msg_next)
 
-
         if self.args.last_action:
-            if transition_idx == 0: 
+            if transition_idx == 0:
                 inputs.append(torch.zeros_like(u_onehot[:, transition_idx]))
             else:
                 inputs.append(u_onehot[:, transition_idx - 1])
@@ -147,16 +149,18 @@ class IDQL:
             inputs.append(torch.eye(self.args.n_agents).unsqueeze(0).expand(episode_num, -1, -1))
             inputs_next.append(torch.eye(self.args.n_agents).unsqueeze(0).expand(episode_num, -1, -1))
 
-
         inputs = torch.cat([x.reshape(episode_num * self.args.n_agents, -1) for x in inputs], dim=1)
-        inputs_next = torch.cat([x.reshape(episode_num * self.args.n_agents, -1) for x in inputs_next], dim=1)
+        inputs_next = torch.cat(
+            [x.reshape(episode_num * self.args.n_agents, -1) for x in inputs_next],
+            dim=1,
+        )
         return inputs, inputs_next, all_msgs, all_msgs_next
 
     def get_q_values(self, batch, max_episode_len):
-        episode_num = batch['obs'].shape[0]
+        episode_num = batch["obs"].shape[0]
         q_evals, q_targets = [], []
         for transition_idx in range(max_episode_len):
-            inputs, inputs_next, all_msgs, all_msgs_next = self._get_inputs(batch, transition_idx)  
+            inputs, inputs_next, all_msgs, all_msgs_next = self._get_inputs(batch, transition_idx)
             if self.args.cuda:
                 inputs = inputs.cuda(device=self.args.cuda_device)
                 inputs_next = inputs_next.cuda(device=self.args.cuda_device)
@@ -167,17 +171,16 @@ class IDQL:
                     all_msgs_next = all_msgs_next.cuda(device=self.args.cuda_device)
 
             if self.args.with_comm:
-                q_eval, self.eval_hidden = self.eval_rnn(inputs, self.eval_hidden, msgs=all_msgs)  
+                q_eval, self.eval_hidden = self.eval_rnn(inputs, self.eval_hidden, msgs=all_msgs)
                 q_target, self.target_hidden = self.target_rnn(inputs_next, self.target_hidden, msgs=all_msgs_next)
             else:
-                q_eval, self.eval_hidden = self.eval_rnn(inputs, self.eval_hidden)  
+                q_eval, self.eval_hidden = self.eval_rnn(inputs, self.eval_hidden)
                 q_target, self.target_hidden = self.target_rnn(inputs_next, self.target_hidden)
 
             q_eval = q_eval.view(episode_num, self.n_agents, -1)
             q_target = q_target.view(episode_num, self.n_agents, -1)
             q_evals.append(q_eval)
             q_targets.append(q_target)
-
 
         q_evals = torch.stack(q_evals, dim=1)
         q_targets = torch.stack(q_targets, dim=1)
@@ -191,4 +194,7 @@ class IDQL:
         num = str(train_step // self.args.save_cycle)
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
-        torch.save(self.eval_rnn.state_dict(),  self.model_dir + '/' + num + '_rnn_net_params.pkl')
+        torch.save(
+            self.eval_rnn.state_dict(),
+            self.model_dir + "/" + num + "_rnn_net_params.pkl",
+        )
