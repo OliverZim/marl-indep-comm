@@ -4,6 +4,7 @@ from common.buffer import ReplayBuffer
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import wandb
 import torch
 
 
@@ -37,12 +38,13 @@ class Runner:
 		time_steps = 0
 		evaluate_steps = -1
 
-		while time_steps < self.args.n_steps:
-			if time_steps // self.args.evaluate_cycle > evaluate_steps:
-				print('Run {}, train step {}/{}'.format(num, time_steps, self.args.n_steps))
-				win_rate, episode_reward = self.evaluate(epoch_num=time_steps)
-				episode_rewards.append(episode_reward)
-				win_rates.append(win_rate)
+        while time_steps < self.args.n_steps:
+            if time_steps // self.args.evaluate_cycle > evaluate_steps:
+                print("Run {}, train step {}/{}".format(num, time_steps, self.args.n_steps))
+                win_rate, episode_reward = self.evaluate(epoch_num=time_steps)
+                wandb.log({"win_rate": win_rate, "episode_reward":episode_reward})
+                episode_rewards.append(episode_reward)
+                win_rates.append(win_rate)
 
 				plt.cla()
 				plt.subplot(2, 1, 1)
