@@ -1,14 +1,16 @@
-import gym
-import ma_gym
-from common.arguments import common_args, config_args
-from runner import Runner
-from smac.env import StarCraft2Env
+import os
+import random
+import warnings
 
+import gym
+import ma_gym  # noqa 401
 import numpy as np
 import torch
-import random
-
-import warnings
+import wandb
+from common.arguments import common_args, config_args
+from dotenv import load_dotenv
+from runner import Runner
+from smac.env import StarCraft2Env
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -16,6 +18,7 @@ N_EXPERIMENTS = 1
 
 
 if __name__ == "__main__":
+    load_dotenv()
     args = common_args()
 
     seed = random.randrange(0, 2**32 - 1)
@@ -59,6 +62,12 @@ if __name__ == "__main__":
     print("CUDA set to", args.cuda)
     print("Communication set to", args.with_comm)
     print("With args:\n", args)
+
+    wandb.login(key=os.getenv("WANDB_API_KEY"))
+    wandb.init(
+        project="independent-comm",
+        config=args,
+    )
 
     runner = Runner(env, args)
 

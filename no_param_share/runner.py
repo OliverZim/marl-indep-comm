@@ -1,10 +1,9 @@
-from agent.agent import Agents
-from common.worker import RolloutWorker, RolloutWorker_SMAC
-from common.buffer import ReplayBuffer
 import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import wandb
 
 
 class Runner:
@@ -41,6 +40,7 @@ class Runner:
             if time_steps // self.args.evaluate_cycle > evaluate_steps:
                 print("Run {}, train step {}/{}".format(num, time_steps, self.args.n_steps))
                 win_rate, episode_reward = self.evaluate(epoch_num=time_steps)
+                wandb.log({"win_rate": win_rate, "episode_reward": episode_reward})
                 episode_rewards.append(episode_reward)
                 win_rates.append(win_rate)
 
