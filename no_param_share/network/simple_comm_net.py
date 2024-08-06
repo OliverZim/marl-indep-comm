@@ -6,8 +6,9 @@ import sys
 import numpy as np
 from torch_dct import dct, idct
 
+
 def get_tensor_size(t: torch.tensor):
-	return t.nelement() * t.element_size()
+    return t.nelement() * t.element_size()
 
 
 # input obs of all agents，output encoded message for each one of the agents
@@ -21,9 +22,8 @@ class Comm_net(nn.Module):
         self.args = args
         self.input_shape = input_shape
 
-        
     def forward(self, inputs):
-        # inputs for now are the observations + last action of all agents that will be here used to generate the messages and then 
+        # inputs for now are the observations + last action of all agents that will be here used to generate the messages and then
         # the messages will be cut using lossy dct
         # messages should be generated from a msg net, then they are cut and sent to the others rnn, where they are decoded to the original size
         # [b, e, n_a, o_dim] -> [b, e, n_a, m_dim]
@@ -39,10 +39,7 @@ class Comm_net(nn.Module):
 
         m = x3
 
-        # because now it generates messages for each agent in separate and not for all of them together as in final_msg = m.reshape(-1, n_agents, self.args.final_msg_dim) 
-        final_msg = m.reshape(-1, self.args.final_msg_dim) 
+        # because now it generates messages for each agent in separate and not for all of them together as in final_msg = m.reshape(-1, n_agents, self.args.final_msg_dim)
+        final_msg = m.reshape(-1, self.args.final_msg_dim)
 
-            
         return final_msg
-
-

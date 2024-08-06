@@ -3,11 +3,12 @@ import torch.nn.functional as F
 from torch_dct import idct
 import torch
 
-'''
+"""
 Because the RNN is used here, the last hidden_state is required each time. For an episode of data, each obs needs the last hidden_state to select the action.
 Therefore, it is not possible to directly and randomly extract a batch of experience input to the neural network, so a batch of episodes is needed here, and the transition of the same position of this batch of episodes is passed in each time.
 In this case, the hidden_state can be saved, and the next experience is the next experience
-'''
+"""
+
 
 class RNN(nn.Module):
     # Because all the agents share the same network, input_shape=obs_shape+n_actions+n_agents
@@ -28,7 +29,7 @@ class RNN(nn.Module):
             ep_num = 1
             if agent_num == None:
                 ep_num = obs.shape[0] // self.args.n_agents
-            
+
             if agent_num != None:
                 # if batch size = 1 (during execution): NOTE in the independent case we always have agent id, just on the centralised we dont
                 # [1, input_dim] -> [1, input_dim + msg_dim]
