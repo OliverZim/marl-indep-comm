@@ -57,8 +57,11 @@ if __name__ == "__main__":
     print("CUDA set to", args.cuda)
     print("Communication set to", args.with_comm)
     print("With args:\n", args)
-    wandb.login(key=os.getenv('WANDB_API_KEY'))
-    wandb.init(project="independent-comm", config=args, )
+    wandb.login(key=os.getenv("WANDB_API_KEY"))
+    wandb.init(
+        project="independent-comm",
+        config=args,
+    )
 
     runner = Runner(env, args)
 
